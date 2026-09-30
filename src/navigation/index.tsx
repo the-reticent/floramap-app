@@ -2,7 +2,8 @@ import React from 'react'
 import { NavigationContainer } from '@react-navigation/native'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { createStackNavigator } from '@react-navigation/stack'
-import { Text, View, StyleSheet } from 'react-native'
+import { Text, View, StyleSheet, TouchableOpacity } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { DiscoverScreen }      from '../screens/DiscoverScreen'
 import { SpeciesDetailScreen } from '../screens/SpeciesDetailScreen'
 import { FilterScreen }        from '../screens/FilterScreen'
@@ -10,6 +11,7 @@ import { SavedScreen }         from '../screens/SavedScreen'
 import { VisualizerScreen }    from '../screens/VisualizerScreen'
 import { colors, typography }  from '../constants/theme'
 import { useAppStore }         from '../store'
+import { useNavigationState, useNavigation } from '@react-navigation/native'
 
 const Tab   = createBottomTabNavigator()
 const Stack = createStackNavigator()
@@ -33,31 +35,9 @@ function SavedStack() {
   )
 }
 
-function TabIcon({ icon, label, focused }: { icon: string; label: string; focused: boolean }) {
-  return (
-    <View style={[tabStyles.wrap, focused && tabStyles.wrapActive]}>
-      <Text style={tabStyles.icon}>{icon}</Text>
-      <Text style={[tabStyles.label, focused && tabStyles.labelActive]}>{label}</Text>
-    </View>
-  )
-}
-
-const tabStyles = StyleSheet.create({
-  wrap: {
-    alignItems:        'center',
-    gap:               2,
-    paddingVertical:   6,
-    paddingHorizontal: 12,
-    borderRadius:      12,
-  },
-  wrapActive:  { backgroundColor: colors.dew },
-  icon:        { fontSize: 22 },
-  label:       { ...typography.labelSm, color: colors.ash },
-  labelActive: { color: colors.canopy },
-})
-
 export function AppNavigator() {
   const { savedSpecies } = useAppStore()
+  const insets = useSafeAreaInsets()
 
   return (
     <NavigationContainer>
@@ -65,22 +45,33 @@ export function AppNavigator() {
         screenOptions={{
           headerShown: false,
           tabBarStyle: {
-            backgroundColor: colors.white,
-            borderTopColor:  colors.cloud,
-            borderTopWidth:  1,
-            paddingBottom:   4,
-            paddingTop:      4,
-            height:          64,
+            backgroundColor:  colors.white,
+            borderTopColor:   colors.cloud,
+            borderTopWidth:   1,
+            height:           60,
+            paddingTop:       8,
+            paddingBottom:    8,
+            elevation:        20,
+            marginBottom:     48,
           },
-          tabBarShowLabel: false,
+          tabBarActiveTintColor:   colors.canopy,
+          tabBarInactiveTintColor: colors.ash,
+          tabBarLabelStyle: {
+            fontSize:   11,
+            fontWeight: '600',
+            marginTop:  2,
+          },
+          tabBarShowLabel: true,
+          tabBarHideOnKeyboard: true,
         }}
       >
         <Tab.Screen
           name="Discover"
           component={DiscoverStack}
           options={{
-            tabBarIcon: ({ focused }) => (
-              <TabIcon icon="🌿" label="Discover" focused={focused} />
+            tabBarLabel: 'Discover',
+            tabBarIcon: ({ focused, color }) => (
+              <Text style={{ fontSize: 22, color }}>🌿</Text>
             ),
           }}
         />
@@ -88,8 +79,9 @@ export function AppNavigator() {
           name="Visualizer"
           component={VisualizerScreen}
           options={{
-            tabBarIcon: ({ focused }) => (
-              <TabIcon icon="📷" label="Visualize" focused={focused} />
+            tabBarLabel: 'Visualize',
+            tabBarIcon: ({ focused, color }) => (
+              <Text style={{ fontSize: 22, color }}>📷</Text>
             ),
           }}
         />
@@ -97,8 +89,9 @@ export function AppNavigator() {
           name="Saved"
           component={SavedStack}
           options={{
-            tabBarIcon: ({ focused }) => (
-              <TabIcon icon="♡" label="Saved" focused={focused} />
+            tabBarLabel: 'Saved',
+            tabBarIcon: ({ focused, color }) => (
+              <Text style={{ fontSize: 22, color }}>♡</Text>
             ),
             tabBarBadge: savedSpecies.length > 0 ? savedSpecies.length : undefined,
           }}

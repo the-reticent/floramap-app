@@ -1,14 +1,11 @@
-// Supabase Edge Function — Google Gemini image generation (free tier)
-// 50 free requests/day, no credit card required
+// Supabase Edge Function — Replicate Stable Diffusion img2img
 // Deploy: supabase functions deploy visualize-garden
-// Secret: supabase secrets set GEMINI_API_KEY=your_key_here
-//
-// Get your free key at: aistudio.google.com/apikey
+// Secret: supabase secrets set REPLICATE_API_KEY=r8_your_key_here
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 
-const GEMINI_KEY = Deno.env.get('GEMINI_API_KEY') ?? ''
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent'
+const REPLICATE_KEY = Deno.env.get('REPLICATE_API_KEY') ?? ''
+const REPLICATE_API = 'https://api.replicate.com/v1'
 
 const cors = {
   'Access-Control-Allow-Origin':  '*',
@@ -20,56 +17,68 @@ serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
 
   try {
-    const { prompt } = await req.json()
-    if (!prompt) throw new Error('prompt is required')
+    const { action, predictionId, prompt, imageUrl, strength } = await req.json()
 
-    const res = await fetch(`${GEMINI_URL}?key=${GEMINI_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{ text: prompt }]
-        }],
-        generationConfig: {
-          responseModalities: ['IMAGE', 'TEXT'],
-          responseMimeType: 'text/plain',
-        }
-      }),
-    })
+    // ── Create prediction ──────────────────────────────────────────
+    if (action === 'create') {
+      const body: Record<string, unknown> = {
+        // SDXL img2img — best quality for garden scenes
+        version: '7762fd07cf82c948538e41f63f77d685e02b063e37e496e96eefd46c929f9bdc',
+        input: {
+          prompt,
+          negative_prompt: 'invasive plants, alien species, exotic garden, blurry, low quality, watermark, text, distorted, cartoon, ugly',
+          num_outputs:          1,
+          num_inference_steps:  30,
+          guidance_scale:       7.5,
+          scheduler:            'DPMSolverMultistep',
+        },
+      }
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      const msg = err.error?.message ?? `Gemini error ${res.status}`
-      throw new Error(msg)
-    }
-
-    const data = await res.json()
-
-    // Extract image from Gemini response
-    let imageData: string | null = null
-    let mimeType = 'image/png'
-
-    for (const candidate of data.candidates ?? []) {
-      for (const part of candidate.content?.parts ?? []) {
-        if (part.inlineData?.data) {
-          imageData = part.inlineData.data
-          mimeType  = part.inlineData.mimeType ?? 'image/png'
-          break
+      // Add image if provided (img2img mode)
+      if (imageUrl) {
+        body.input = {
+          ...(body.input as object),
+          image:           imageUrl,
+          prompt_strength: strength ?? 0.6,
         }
       }
-      if (imageData) break
+
+      const res = await fetch(`${REPLICATE_API}/predictions`, {
+        method: 'POST',
+        headers: {
+          Authorization:  `Token ${REPLICATE_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      })
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.detail ?? `Replicate error ${res.status}`)
+      }
+
+      const data = await res.json()
+      return new Response(JSON.stringify(data), {
+        headers: { ...cors, 'Content-Type': 'application/json' },
+        status: res.status,
+      })
     }
 
-    if (!imageData) throw new Error('No image in Gemini response')
+    // ── Poll prediction ────────────────────────────────────────────
+    if (action === 'poll') {
+      const res = await fetch(`${REPLICATE_API}/predictions/${predictionId}`, {
+        headers: { Authorization: `Token ${REPLICATE_KEY}` },
+      })
+      const data = await res.json()
+      return new Response(JSON.stringify(data), {
+        headers: { ...cors, 'Content-Type': 'application/json' },
+        status: res.status,
+      })
+    }
 
     return new Response(
-      JSON.stringify({
-        status:   'succeeded',
-        output:   [imageData],
-        mimeType,
-        isBase64: true,
-      }),
-      { headers: { ...cors, 'Content-Type': 'application/json' } }
+      JSON.stringify({ error: 'Unknown action' }),
+      { headers: { ...cors, 'Content-Type': 'application/json' }, status: 400 }
     )
 
   } catch (e: any) {

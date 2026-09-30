@@ -58,7 +58,7 @@ export function VisualizerScreen() {
     setSelected(prev =>
       prev.find(s => s.accepted_name === sp.accepted_name)
         ? prev.filter(s => s.accepted_name !== sp.accepted_name)
-        : prev.length < 5
+        : prev.length < 10
           ? [...prev, sp]
           : prev
     )
@@ -133,7 +133,7 @@ export function VisualizerScreen() {
                 SELECT PLANTS{selected.length > 0 ? ` (${selected.length}/5)` : ''}
               </Text>
               <Text style={styles.sectionSub}>
-                Choose up to 5 native plants to add to your garden
+                Choose up to 10 native plants to add to your garden
               </Text>
             </View>
 

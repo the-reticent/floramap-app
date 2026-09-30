@@ -15,6 +15,11 @@ export function useNativePlants() {
   const [locating, setLocating] = useState(false)
 
   const fetchLocationWeb = useCallback(() => {
+    if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+      setLocation({ latitude: -33.36120688815378, longitude: 19.19803603639766 })
+      setLocating(false)
+      return
+    }
     if (!navigator.geolocation) {
       setLocationError('Geolocation not supported in this browser')
       return
